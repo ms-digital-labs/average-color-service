@@ -37,28 +37,53 @@ func jsonpFormatter(callback string) formatter {
   }
 }
 
-func handler(w http.ResponseWriter, r *http.Request) {
-  var format formatter
-  switch x := r.FormValue("callback"); x {
-    case "": format = jsonFormatter
-    default: format = jsonpFormatter(x)
+type request struct {
+  httpResponse http.ResponseWriter
+  httpRequest * http.Request
+}
+
+func (r *request) Url() string {
+  return r.httpRequest.FormValue("url")
+}
+
+func (r *request) CallbackName() string {
+  return r.httpRequest.FormValue("callback")
+}
+func (r *request) Formatter() formatter {
+  switch x := r.CallbackName(); x {
+    case "": return jsonFormatter
+    default: return jsonpFormatter(x)
   }
+}
+
+func (r *request) FormatOutput(res response) {
+  f := r.Formatter()
+  f(r.httpResponse, res)
+}
+
+func (r *request) HandleError(err error) {
+  r.httpResponse.WriteHeader(500)
+  v := err.Error()
+  r.FormatOutput(response{Error: &v, Color: "#ffffff"})
+}
 
 
-  res, err := http.Get(r.FormValue("url"))
+func (r * request) GetImage() (img image.Image, err error) {
+  res, err := http.Get(r.Url())
+  if err == nil {
+    img, _, err = image.Decode(res.Body)
+  }
+  return img, err
+}
+
+func (r * request) GetColor() (string, error) {
+  img, err := r.GetImage()
   if err != nil {
-    handleError(w, err, format)
-    return
+    return "#ffffff", err
   }
 
-  img, _, err := image.Decode(res.Body)
-  if err != nil {
-    handleError(w, err, format)
-    return
-  }
   bounds := img.Bounds()
   var count, totalR, totalG, totalB uint64
-
   for x := bounds.Min.X; x < bounds.Max.X; x++ {
     for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
       r,g,b,_:= img.At(x, y).RGBA()
@@ -74,15 +99,23 @@ func handler(w http.ResponseWriter, r *http.Request) {
       }
     }
   }
-  color := fmt.Sprintf("#%02x%02x%02x", totalR/count, totalG/count, totalB/count)
-  w.Header().Set("Cache-control", "public, max-age=259200")
-  format(w, response{Color: color})
+  c := fmt.Sprintf("#%02x%02x%02x", totalR/count, totalG/count, totalB/count)
+  return c, nil
 }
 
-func handleError(w http.ResponseWriter, err error, format formatter) {
-  w.WriteHeader(500)
-  v := err.Error()
-  format(w, response{Error: &v, Color: "#ffffff"})
+func (req * request) Process() {
+  color, err := req.GetColor()
+  if err != nil {
+    req.HandleError(err)
+  } else {
+    req.httpResponse.Header().Set("Cache-control", "public, max-age=259200")
+    req.FormatOutput(response{Color: color})
+  }
+}
+
+func handler(w http.ResponseWriter, r *http.Request) {
+  req := request{w, r}
+  req.Process()
 }
 
 func main() {
