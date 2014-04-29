@@ -44,7 +44,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
         }
       }
       myResponse := response{
-        Color: fmt.Sprintf("rgb(%d, %d, %d)",
+        Color: fmt.Sprintf("#%02x%02x%02x)",
           totalR/count,
           totalG/count,
           totalB/count,
