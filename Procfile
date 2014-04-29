@@ -1,1 +1,1 @@
-web: main
+web: average-color-service

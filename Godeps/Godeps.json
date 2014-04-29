@@ -1,0 +1,5 @@
+{
+	"ImportPath": "mslabs.io/average-color-service",
+	"GoVersion": "go1.2",
+	"Deps": []
+}
