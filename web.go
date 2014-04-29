@@ -20,10 +20,12 @@ func handler(w http.ResponseWriter, r *http.Request) {
   res, err := http.Get(r.FormValue("url"))
   if err != nil {
     handleError(w, err)
+    return
   } else {
     img, _, err := image.Decode(res.Body)
     if err != nil {
       handleError(w, err)
+      return
     } else {
       bounds := img.Bounds()
       var count, totalR, totalG, totalB uint64
@@ -52,6 +54,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
       j, err := json.Marshal(myResponse)
       if err != nil {
         handleError(w, err)
+        return
       }
       w.Write(j)
     }
@@ -63,6 +66,7 @@ func handleError(w http.ResponseWriter, err error) {
   if err != nil {
     j = []byte("{Error:\"Oops\"}")
   }
+  w.WriteHeader(500)
   w.Write(j)
 }
 
